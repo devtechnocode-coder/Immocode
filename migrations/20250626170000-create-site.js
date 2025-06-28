@@ -2,7 +2,7 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Users', {
+    await queryInterface.createTable('Sites', {
       id: {
         allowNull: false,
         autoIncrement: true,
@@ -10,48 +10,33 @@ module.exports = {
         type: Sequelize.INTEGER
       },
       name: {
-        type: Sequelize.STRING(100),
-        allowNull: false
-      },
-      surname: {
-        type: Sequelize.STRING(100),
-        allowNull: false
-      },
-      email: {
-        type: Sequelize.STRING(255),
-        allowNull: false,
-        unique: true
-      },
-      password: {
         type: Sequelize.STRING(255),
         allowNull: false
       },
-      role: {
-        type: Sequelize.STRING(20),
+      is_warehouse: {
+        type: Sequelize.BOOLEAN,
         allowNull: false,
-        validate: {
-          isIn: [['superadmin', 'admin', 'user']]
-        }
+        defaultValue: false
+      },
+      is_departments: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
       },
       id_entreprise: {
         type: Sequelize.INTEGER,
+        allowNull: false,
         references: {
           model: 'Entreprises',
           key: 'id'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'SET NULL',
-        allowNull: true
+        onDelete: 'CASCADE'
       },
       is_deleted: {
         type: Sequelize.BOOLEAN,
         allowNull: false,
         defaultValue: false
-      },
-      is_active: {
-        type: Sequelize.BOOLEAN,
-        allowNull: false,
-        defaultValue: true
       },
       deleted_at: {
         type: Sequelize.DATE,
@@ -70,6 +55,6 @@ module.exports = {
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Users');
+    await queryInterface.dropTable('Sites');
   }
-};
+}; 

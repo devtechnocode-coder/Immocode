@@ -54,7 +54,7 @@ exports.softDeleteEntreprise = async (req, res) => {
 
 exports.getAllEntreprises = async (req, res) => {
   try {
-    const entreprises = await Entreprise.findAll();
+    const entreprises = await Entreprise.findAll({ where: { is_deleted: false } });
     res.json(entreprises);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -64,7 +64,7 @@ exports.getAllEntreprises = async (req, res) => {
 exports.getEntrepriseByName = async (req, res) => {
   try {
     const { name } = req.params;
-    const entreprises = await Entreprise.findAll({ where: { name } });
+    const entreprises = await Entreprise.findAll({ where: { name, is_deleted: false } });
     if (!entreprises.length) return res.status(404).json({ message: 'No entreprise found with this name' });
     res.json(entreprises);
   } catch (err) {
@@ -75,7 +75,7 @@ exports.getEntrepriseByName = async (req, res) => {
 exports.getEntrepriseById = async (req, res) => {
   try {
     const { id } = req.params;
-    const entreprise = await Entreprise.findByPk(id);
+    const entreprise = await Entreprise.findOne({ where: { id, is_deleted: false } });
     if (!entreprise) return res.status(404).json({ message: 'Entreprise not found' });
     res.json(entreprise);
   } catch (err) {
@@ -85,9 +85,43 @@ exports.getEntrepriseById = async (req, res) => {
 
 exports.countEntreprises = async (req, res) => {
   try {
-    const count = await Entreprise.count();
+    const count = await Entreprise.count({ where: { is_deleted: false } });
     res.json({ count });
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getDeletedEntreprises = async (req, res) => {
+  try {
+    const entreprises = await Entreprise.findAll({ where: { is_deleted: true } });
+    res.json(entreprises);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.undeleteEntreprise = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const entreprise = await Entreprise.findByPk(id, { paranoid: false });
+    
+    if (!entreprise) {
+      return res.status(404).json({ message: 'Entreprise not found' });
+    }
+    
+    if (!entreprise.is_deleted) {
+      return res.status(400).json({ message: 'Entreprise is not deleted' });
+    }
+    
+    await entreprise.update({
+      is_deleted: false,
+      deleted_at: null
+    });
+    
+    res.json({ message: 'Entreprise undeleted successfully', entreprise });
+  } catch (err) {
+    console.error('Error in undeleteEntreprise:', err);
     res.status(500).json({ message: err.message });
   }
 }; 

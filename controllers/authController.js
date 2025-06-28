@@ -34,10 +34,29 @@ exports.login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: 'Missing email or password' });
     }
-    const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(400).json({ message: 'No user found with this email' });
+    
+    // First check if user exists (including deleted ones)
+    const user = await User.findOne({ where: { email }, paranoid: false });
+    if (!user) {
+      return res.status(400).json({ message: 'No user found with this email' });
+    }
+    
+    // Check if user is deleted
+    if (user.is_deleted) {
+      return res.status(400).json({ message: 'This account has been deleted. Please contact support for assistance.' });
+    }
+    
+    // Check if user is deactivated
+    if (!user.is_active) {
+      return res.status(400).json({ message: 'Sorry, your account has been deactivated. Please contact the supervisors for further details.' });
+    }
+    
+    // Verify password
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ message: 'Incorrect password' });
+    if (!valid) {
+      return res.status(400).json({ message: 'Incorrect password' });
+    }
+    
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token });
   } catch (err) {

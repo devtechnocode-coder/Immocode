@@ -1,50 +1,49 @@
-'use strict';
-const Sequelize = require('sequelize');
+"use strict";
 
 module.exports = {
-  up: async ({ context: queryInterface }) => {
-    await queryInterface.createTable('Sections', {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable("Sections", {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
       },
       name: {
         type: Sequelize.STRING(255),
-        allowNull: false
+        allowNull: false,
       },
       id_warehouse: {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Warehouses',
-          key: 'id'
+          model: "Warehouses",
+          key: "id",
         },
-        onDelete: 'CASCADE'
+        onDelete: "CASCADE",
       },
       is_deleted: {
         type: Sequelize.BOOLEAN,
-        defaultValue: false
+        defaultValue: false,
       },
       created_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
       },
       updated_at: {
         allowNull: false,
         type: Sequelize.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        defaultValue: Sequelize.literal("CURRENT_TIMESTAMP"),
       },
       deleted_at: {
         type: Sequelize.DATE,
-        allowNull: true
-      }
+        allowNull: true,
+      },
     });
   },
 
-  down: async ({ context: queryInterface }) => {
-    await queryInterface.dropTable('Sections');
-  }
-}; 
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.dropTable("Sections");
+  },
+};

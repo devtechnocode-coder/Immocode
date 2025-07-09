@@ -1,60 +1,73 @@
-require('dotenv').config();
-const express = require('express');
+require("dotenv").config();
+const express = require("express");
 const app = express();
-const authRoutes = require('./routes/auth');
-const entrepriseRoutes = require('./routes/entreprise');
-const userRoutes = require('./routes/user');
-const siteRoutes = require('./routes/site');
-const warehouseRoutes = require('./routes/warehouse');
-const departmentRoutes = require('./routes/department');
-const sectionRoutes = require('./routes/section');
-const deskRoutes = require('./routes/desk');
-const { Umzug, SequelizeStorage } = require('umzug');
-const db = require('./models');
+const authRoutes = require("./routes/auth");
+const entrepriseRoutes = require("./routes/entreprise");
+const userRoutes = require("./routes/user");
+const siteRoutes = require("./routes/site");
+const warehouseRoutes = require("./routes/warehouse");
+const departmentRoutes = require("./routes/department");
+const sectionRoutes = require("./routes/section");
+const deskRoutes = require("./routes/desk");
+const { Umzug, SequelizeStorage } = require("umzug");
+const db = require("./models");
+
+const { Sequelize } = require("sequelize"); // Make sure this is imported
 
 async function runMigrations() {
   const umzug = new Umzug({
-    migrations: { glob: 'migrations/*.js' },
+    migrations: {
+      glob: "migrations/*.js",
+      resolve: ({ name, path, context }) => {
+        const migration = require(path);
+        return {
+          name,
+          up: () => migration.up(context, Sequelize), // ✅ inject Sequelize here
+          down: () => migration.down(context, Sequelize),
+        };
+      },
+    },
     context: db.sequelize.getQueryInterface(),
     storage: new SequelizeStorage({ sequelize: db.sequelize }),
     logger: console,
   });
+
   await umzug.up();
 }
 
 runMigrations()
   .then(() => {
-    console.log('Migrations up to date!');
+    console.log("Migrations up to date!");
   })
-  .catch(err => {
-    console.error('Migration error:', err);
+  .catch((err) => {
+    console.error("Migration error:", err);
     process.exit(1);
   });
 
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/entreprises', entrepriseRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/sites', siteRoutes);
-app.use('/api/warehouses', warehouseRoutes);
-app.use('/api/departments', departmentRoutes);
-app.use('/api/sections', sectionRoutes);
-app.use('/api/desks', deskRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/entreprises", entrepriseRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/sites", siteRoutes);
+app.use("/api/warehouses", warehouseRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/sections", sectionRoutes);
+app.use("/api/desks", deskRoutes);
 
-app.get('/', (req, res) => {
-  res.send('API is running!');
+app.get("/", (req, res) => {
+  res.send("API is running!");
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-console.log('App started and listening for requests...');
+console.log("App started and listening for requests...");
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection:", reason);
 });
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-}); 
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});

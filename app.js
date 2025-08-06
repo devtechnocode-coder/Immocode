@@ -8,6 +8,7 @@ const siteRoutes = require("./routes/site");
 const warehouseRoutes = require("./routes/warehouse");
 const departmentRoutes = require("./routes/department");
 const sectionRoutes = require("./routes/section");
+const equipmentRoutes = require("./routes/equipment");
 const deskRoutes = require("./routes/desk");
 const { Umzug, SequelizeStorage } = require("umzug");
 const db = require("./models");
@@ -54,6 +55,7 @@ app.use("/api/warehouses", warehouseRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/sections", sectionRoutes);
 app.use("/api/desks", deskRoutes);
+app.use("/api/equipment", equipmentRoutes);
 
 app.get("/", (req, res) => {
   res.send("API is running!");

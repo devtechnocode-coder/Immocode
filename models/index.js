@@ -40,4 +40,48 @@ Object.keys(db).forEach(modelName => {
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
+// REMOVE THE ENTIRE INVENTAIRE SECTION - all associations are already defined in the model file
+// if (db.Inventaire) {
+//   // Ensure Inventaire has proper associations
+//   if (db.User && db.Inventaire.associate) {
+//     db.Inventaire.belongsTo(db.User, {
+//       foreignKey: 'AssociatedTo',
+//       as: 'associatedUser'
+//     });
+//   }
+//   
+//   // Polymorphic associations for placement
+//   if (db.Desk && db.Inventaire.associate) {
+//     db.Inventaire.belongsTo(db.Desk, {
+//       foreignKey: 'idPlacement',
+//       constraints: false,
+//       as: 'desk'
+//     });
+//   }
+//   
+//   if (db.Section && db.Inventaire.associate) {
+//     db.Inventaire.belongsTo(db.Section, {
+//       foreignKey: 'idPlacement',
+//       constraints: false,
+//       as: 'section'
+//     });
+//   }
+// }
+
+// Add Employee associations
+if (db.Employee && db.Entreprise) {
+  db.Entreprise.hasMany(db.Employee, {
+    foreignKey: 'id_entreprise',
+    as: 'employees'
+  });
+}
+
+// Add Equipment-Employee association
+if (db.Equipment && db.Employee) {
+  db.Employee.hasMany(db.Equipment, {
+    foreignKey: 'employee_id',
+    as: 'equipment'
+  });
+}
+
 module.exports = db;

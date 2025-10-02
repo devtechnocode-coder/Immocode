@@ -9,7 +9,7 @@ router.get('/deleted', authenticateToken, requireAdmin, equipmentController.getD
 router.get('/count', authenticateToken, requireAdmin, equipmentController.countAllEquipment);
 router.get('/identifier/:special_identifier', authenticateToken, requireAdmin, equipmentController.getEquipmentBySpecialIdentifier);
 router.get('/state/:state', authenticateToken, requireAdmin, equipmentController.getEquipmentByState);
-router.get('/user/:user_name', authenticateToken, requireAdmin, equipmentController.getEquipmentByUser);
+router.get('/employee/:employee_id', authenticateToken, requireAdmin, equipmentController.getEquipmentByEmployee); // CHANGED
 router.get('/desk/:desk_id', authenticateToken, requireAdmin, equipmentController.getEquipmentByDesk);
 router.get('/section/:section_id', authenticateToken, requireAdmin, equipmentController.getEquipmentBySection);
 router.get('/:id', authenticateToken, requireAdmin, equipmentController.getEquipmentById);

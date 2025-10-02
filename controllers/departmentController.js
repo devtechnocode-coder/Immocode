@@ -118,11 +118,15 @@ exports.getAllDepartments = async (req, res) => {
         {
           model: User,
           as: 'responsable',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name', 'surname', 'email']
         },
         {
           model: Site,
           as: 'site',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name']
         }
       ]
@@ -143,11 +147,15 @@ exports.getDepartmentById = async (req, res) => {
         {
           model: User,
           as: 'responsable',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name', 'surname', 'email']
         },
         {
           model: Site,
           as: 'site',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name']
         }
       ]
@@ -171,11 +179,15 @@ exports.getDepartmentByName = async (req, res) => {
         {
           model: User,
           as: 'responsable',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name', 'surname', 'email']
         },
         {
           model: Site,
           as: 'site',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name']
         }
       ]
@@ -199,11 +211,15 @@ exports.getDepartmentsBySite = async (req, res) => {
         {
           model: User,
           as: 'responsable',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name', 'surname', 'email']
         },
         {
           model: Site,
           as: 'site',
+          where: { id: id_site, is_deleted: false },
+          required: false,
           attributes: ['id', 'name']
         }
       ]
@@ -224,11 +240,15 @@ exports.getDeletedDepartments = async (req, res) => {
         {
           model: User,
           as: 'responsable',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name', 'surname', 'email']
         },
         {
           model: Site,
           as: 'site',
+          where: { is_deleted: false },
+          required: false,
           attributes: ['id', 'name']
         }
       ]
@@ -242,7 +262,17 @@ exports.getDeletedDepartments = async (req, res) => {
 
 exports.countAllDepartments = async (req, res) => {
   try {
-    const count = await Department.count({ where: { is_deleted: false } });
+    const count = await Department.count({ 
+      where: { is_deleted: false },
+      include: [
+        {
+          model: Site,
+          as: 'site',
+          where: { is_deleted: false }, // ✅ Only count departments with non-deleted sites
+          required: true // ✅ Only count if site exists and is not deleted
+        }
+      ]
+    });
     res.json({ count });
   } catch (err) {
     console.error('Error in countAllDepartments:', err);
@@ -253,10 +283,26 @@ exports.countAllDepartments = async (req, res) => {
 exports.countDepartmentsBySite = async (req, res) => {
   try {
     const { id_site } = req.params;
-    const count = await Department.count({ where: { id_site, is_deleted: false } });
+    const count = await Department.count({ 
+      where: { 
+        id_site, 
+        is_deleted: false 
+      },
+      include: [
+        {
+          model: Site,
+          as: 'site',
+          where: { 
+            id: id_site, 
+            is_deleted: false // ✅ Only count if site exists and is not deleted
+          },
+          required: true
+        }
+      ]
+    });
     res.json({ count });
   } catch (err) {
     console.error('Error in countDepartmentsBySite:', err);
     res.status(500).json({ message: err.message });
   }
-}; 
+};

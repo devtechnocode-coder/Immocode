@@ -4,9 +4,9 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Equipment extends Model {
     static associate(models) {
-      Equipment.belongsTo(models.User, {
-        foreignKey: 'user_name',
-        as: 'user'
+      Equipment.belongsTo(models.Employee, {
+        foreignKey: 'employee_id',
+        as: 'employee'
       });
       Equipment.belongsTo(models.Desk, {
         foreignKey: 'desk_id',
@@ -49,13 +49,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('new', 'good', 'fair', 'poor', 'broken'),
       allowNull: false
     },
-    user_name: {
+    employee_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
       references: {
-        model: 'Users',
-        key: 'id'
-      }
+        model: 'Employees',
+        key: 'id_employee'
+      },
+      field: 'employee_id'
     },
     desk_id: {
       type: DataTypes.INTEGER,

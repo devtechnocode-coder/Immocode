@@ -1,4 +1,4 @@
-const { Equipment, User, Desk, Section } = require('../models');
+const { Equipment, Employee, Desk, Section } = require('../models');
 
 exports.createEquipment = async (req, res) => {
   try {
@@ -8,18 +8,18 @@ exports.createEquipment = async (req, res) => {
       return res.status(400).json({ message: `Missing attribute(s): ${missing.join(', ')}` });
     }
 
-    const { name, special_identifier, buying_price, date_of_purchase, current_ammortissement, state, user_name, desk_id, section_id } = req.body;
+    const { name, special_identifier, buying_price, date_of_purchase, current_ammortissement, state, employee_id, desk_id, section_id } = req.body;
 
     // Validate desk_id or section_id (one must be provided but not both)
     if ((!desk_id && !section_id) || (desk_id && section_id)) {
       return res.status(400).json({ message: 'Equipment must be assigned to either a desk or a section, but not both' });
     }
 
-    // Check if user exists (if provided)
-    if (user_name) {
-      const user = await User.findByPk(user_name);
-      if (!user) {
-        return res.status(400).json({ message: 'The indicated user does not exist' });
+    // Check if employee exists (if provided)
+    if (employee_id) {
+      const employee = await Employee.findByPk(employee_id);
+      if (!employee) {
+        return res.status(400).json({ message: 'The indicated employee does not exist' });
       }
     }
 
@@ -46,7 +46,7 @@ exports.createEquipment = async (req, res) => {
       date_of_purchase,
       current_ammortissement: current_ammortissement || 0,
       state,
-      user_name,
+      employee_id,
       desk_id,
       section_id
     });
@@ -66,7 +66,7 @@ exports.updateEquipment = async (req, res) => {
       return res.status(404).json({ message: 'Equipment not found' });
     }
 
-    const { name, special_identifier, buying_price, date_of_purchase, current_ammortissement, state, user_name, desk_id, section_id } = req.body;
+    const { name, special_identifier, buying_price, date_of_purchase, current_ammortissement, state, employee_id, desk_id, section_id } = req.body;
 
     // Validate desk_id or section_id (if provided)
     if ((desk_id !== undefined && section_id !== undefined) && 
@@ -74,12 +74,12 @@ exports.updateEquipment = async (req, res) => {
       return res.status(400).json({ message: 'Equipment must be assigned to either a desk or a section, but not both' });
     }
 
-    // Check if user exists (if provided)
-    if (user_name !== undefined) {
-      if (user_name) {
-        const user = await User.findByPk(user_name);
-        if (!user) {
-          return res.status(400).json({ message: 'The indicated user does not exist' });
+    // Check if employee exists (if provided)
+    if (employee_id !== undefined) {
+      if (employee_id) {
+        const employee = await Employee.findByPk(employee_id);
+        if (!employee) {
+          return res.status(400).json({ message: 'The indicated employee does not exist' });
         }
       }
     }
@@ -111,7 +111,7 @@ exports.updateEquipment = async (req, res) => {
       date_of_purchase,
       current_ammortissement,
       state,
-      user_name,
+      employee_id,
       desk_id,
       section_id
     });
@@ -171,9 +171,9 @@ exports.getAllEquipment = async (req, res) => {
       where: { is_deleted: false },
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,
@@ -201,9 +201,9 @@ exports.getEquipmentById = async (req, res) => {
       where: { id, is_deleted: false },
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,
@@ -234,9 +234,9 @@ exports.getEquipmentBySpecialIdentifier = async (req, res) => {
       where: { special_identifier, is_deleted: false },
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,
@@ -267,9 +267,9 @@ exports.getEquipmentByState = async (req, res) => {
       where: { state, is_deleted: false },
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,
@@ -293,16 +293,16 @@ exports.getEquipmentByState = async (req, res) => {
   }
 };
 
-exports.getEquipmentByUser = async (req, res) => {
+exports.getEquipmentByEmployee = async (req, res) => {
   try {
-    const { user_name } = req.params;
+    const { employee_id } = req.params;
     const equipment = await Equipment.findAll({
-      where: { user_name, is_deleted: false },
+      where: { employee_id, is_deleted: false },
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,
@@ -318,7 +318,7 @@ exports.getEquipmentByUser = async (req, res) => {
     });
     res.json(equipment);
   } catch (err) {
-    console.error('Error in getEquipmentByUser:', err);
+    console.error('Error in getEquipmentByEmployee:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -330,9 +330,9 @@ exports.getEquipmentByDesk = async (req, res) => {
       where: { desk_id, is_deleted: false },
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,
@@ -360,9 +360,9 @@ exports.getEquipmentBySection = async (req, res) => {
       where: { section_id, is_deleted: false },
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,
@@ -390,9 +390,9 @@ exports.getDeletedEquipment = async (req, res) => {
       paranoid: false,
       include: [
         {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'name', 'surname', 'email']
+          model: Employee,
+          as: 'employee',
+          attributes: ['idEmployee', 'firstName', 'lastName', 'CIN']
         },
         {
           model: Desk,

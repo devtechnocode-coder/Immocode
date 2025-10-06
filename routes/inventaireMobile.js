@@ -12,5 +12,5 @@ router.put('/:id', authenticateToken, inventaireMobileController.updateMyInventa
 
 // Add the new status update route
 router.put('/:id/status', authenticateToken, inventaireMobileController.updateMyInventaireStatus);
-
+router.get('/:id/equipment', authenticateToken, inventaireMobileController.getInventoryEquipment);
 module.exports = router; // Fixed the typo here - was "module.exp orts"

@@ -249,3 +249,87 @@ exports.updateMyInventaireStatus = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+// Add this to your inventaireMobileController.js
+exports.getInventoryEquipment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verify inventory exists
+    const inventory = await Inventaire.findByPk(id);
+    if (!inventory) {
+      return res.status(404).json({
+        success: false,
+        message: 'Inventory not found'
+      });
+    }
+
+    // Get equipment associated with this inventory through InventaireEquipment
+    const inventoryEquipment = await InventaireEquipment.findAll({
+      where: { inventaire_id: id },
+      include: [
+        {
+          model: Equipment,
+          where: { is_deleted: false },
+          include: [
+            {
+              model: Employee,
+              as: 'employee',
+              attributes: ['id_employee', 'firstName', 'lastName']
+            },
+            {
+              model: Desk,
+              as: 'desk',
+              attributes: ['id', 'name']
+            },
+            {
+              model: Section,
+              as: 'section',
+              attributes: ['id', 'name']
+            }
+          ]
+        }
+      ]
+    });
+
+    // Transform data to match Android expectations
+    const equipmentList = inventoryEquipment.map(item => {
+      const equipment = item.Equipment;
+      
+      // Determine emplacement (location)
+      let emplacement = 'Unknown';
+      if (equipment.desk) {
+        emplacement = `Desk: ${equipment.desk.name}`;
+      } else if (equipment.section) {
+        emplacement = `Section: ${equipment.section.name}`;
+      }
+      
+      // Determine associated user
+      let associated_user = 'Unassigned';
+      if (equipment.employee) {
+        associated_user = `${equipment.employee.firstName} ${equipment.employee.lastName}`;
+      }
+
+      return {
+        id: equipment.id,
+        name: equipment.name,
+        special_identifier: equipment.special_identifier,
+        emplacement: emplacement,
+        associated_user: associated_user,
+        status: equipment.state,
+        // Include additional fields that might be needed
+        buying_price: equipment.buying_price,
+        date_of_purchase: equipment.date_of_purchase,
+        current_ammortissement: equipment.current_ammortissement
+      };
+    });
+
+    res.json(equipmentList);
+  } catch (err) {
+    console.error('Error in getInventoryEquipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch inventory equipment',
+      error: err.message 
+    });
+  }
+};

@@ -1,0 +1,19 @@
+const express = require('express');
+const router = express.Router();
+const equipmentMobileController = require('../controllers/equipmentMobileController');
+const { authenticateToken } = require('../middleware/auth');
+
+// Mobile equipment routes (authentication required, but not necessarily admin)
+router.get('/', authenticateToken, equipmentMobileController.getAllNonDeletedEquipment);
+router.get('/search', authenticateToken, equipmentMobileController.searchEquipment);
+router.get('/inventory/:inventory_id', authenticateToken, equipmentMobileController.getAllNonDeletedEquipmentByInventoryID);
+router.get('/identifier/:special_identifier', authenticateToken, equipmentMobileController.getEquipmentBySpecialIdentifier);
+router.get('/:id', authenticateToken, equipmentMobileController.getEquipmentById);
+
+// Creation and modification routes (typically require admin or manager role)
+router.post('/', authenticateToken, equipmentMobileController.createEquipment);
+router.put('/:id', authenticateToken, equipmentMobileController.updateEquipment);
+router.patch('/:id/status', authenticateToken, equipmentMobileController.patchEquipmentStatusById);
+router.delete('/:id', authenticateToken, equipmentMobileController.deleteEquipment);
+
+module.exports = router;

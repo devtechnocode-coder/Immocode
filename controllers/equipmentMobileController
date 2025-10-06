@@ -1,0 +1,527 @@
+const { Equipment, Employee, Desk, Section, Inventaire, InventaireEquipment } = require('../models');
+
+// Get all non-deleted equipment with basic info (mobile optimized)
+exports.getAllNonDeletedEquipment = async (req, res) => {
+  try {
+    const equipment = await Equipment.findAll({
+      where: { is_deleted: false },
+      attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase'],
+      include: [
+        {
+          model: Employee,
+          as: 'employee',
+          attributes: ['id_employee', 'firstName', 'lastName']
+        },
+        {
+          model: Desk,
+          as: 'desk',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Section,
+          as: 'section',
+          attributes: ['id', 'name']
+        }
+      ],
+      order: [['name', 'ASC']]
+    });
+    
+    res.json({
+      success: true,
+      data: equipment,
+      count: equipment.length
+    });
+  } catch (err) {
+    console.error('Error in getAllNonDeletedEquipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch equipment',
+      error: err.message 
+    });
+  }
+};
+
+// Get equipment by inventory ID
+exports.getAllNonDeletedEquipmentByInventoryID = async (req, res) => {
+  try {
+    const { inventory_id } = req.params;
+    
+    // Verify inventory exists
+    const inventory = await Inventaire.findByPk(inventory_id);
+    if (!inventory) {
+      return res.status(404).json({
+        success: false,
+        message: 'Inventory not found'
+      });
+    }
+
+    // Get equipment associated with this inventory
+    const inventoryEquipment = await InventaireEquipment.findAll({
+      where: { inventaire_id: inventory_id },
+      include: [
+        {
+          model: Equipment,
+          where: { is_deleted: false },
+          attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase'],
+          include: [
+            {
+              model: Employee,
+              as: 'employee',
+              attributes: ['id_employee', 'firstName', 'lastName']
+            },
+            {
+              model: Desk,
+              as: 'desk',
+              attributes: ['id', 'name']
+            },
+            {
+              model: Section,
+              as: 'section',
+              attributes: ['id', 'name']
+            }
+          ]
+        }
+      ]
+    });
+
+    const equipment = inventoryEquipment.map(item => item.Equipment);
+    
+    res.json({
+      success: true,
+      data: equipment,
+      count: equipment.length,
+      inventory: {
+        id: inventory.id,
+        name: inventory.name,
+        status: inventory.status
+      }
+    });
+  } catch (err) {
+    console.error('Error in getAllNonDeletedEquipmentByInventoryID:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch equipment for inventory',
+      error: err.message 
+    });
+  }
+};
+
+// Create equipment (mobile optimized - simplified)
+exports.createEquipment = async (req, res) => {
+  try {
+    const required = ['name', 'special_identifier', 'buying_price', 'date_of_purchase', 'state'];
+    const missing = required.filter(attr => !req.body[attr]);
+    if (missing.length > 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: `Missing required fields: ${missing.join(', ')}` 
+      });
+    }
+
+    const { name, special_identifier, buying_price, date_of_purchase, current_ammortissement, state, employee_id, desk_id, section_id } = req.body;
+
+    // Validate desk_id or section_id
+    if ((!desk_id && !section_id) || (desk_id && section_id)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Equipment must be assigned to either a desk or a section, but not both' 
+      });
+    }
+
+    // Check if special identifier already exists
+    const existingEquipment = await Equipment.findOne({ 
+      where: { special_identifier, is_deleted: false } 
+    });
+    if (existingEquipment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Equipment with this special identifier already exists'
+      });
+    }
+
+    // Validate references if provided
+    if (employee_id) {
+      const employee = await Employee.findByPk(employee_id);
+      if (!employee) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'The specified employee does not exist' 
+        });
+      }
+    }
+
+    if (desk_id) {
+      const desk = await Desk.findByPk(desk_id);
+      if (!desk) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'The specified desk does not exist' 
+        });
+      }
+    }
+
+    if (section_id) {
+      const section = await Section.findByPk(section_id);
+      if (!section) {
+        return res.status(400).json({ 
+          success: false,
+          message: 'The specified section does not exist' 
+        });
+      }
+    }
+
+    const equipment = await Equipment.create({
+      name,
+      special_identifier,
+      buying_price,
+      date_of_purchase,
+      current_ammortissement: current_ammortissement || 0,
+      state,
+      employee_id,
+      desk_id,
+      section_id
+    });
+
+    // Fetch created equipment with associations
+    const createdEquipment = await Equipment.findByPk(equipment.id, {
+      include: [
+        {
+          model: Employee,
+          as: 'employee',
+          attributes: ['id_employee', 'firstName', 'lastName']
+        },
+        {
+          model: Desk,
+          as: 'desk',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Section,
+          as: 'section',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+
+    res.status(201).json({ 
+      success: true,
+      message: 'Equipment created successfully', 
+      data: createdEquipment 
+    });
+  } catch (err) {
+    console.error('Error in createEquipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to create equipment',
+      error: err.message 
+    });
+  }
+};
+
+// Update equipment (full update)
+exports.updateEquipment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const equipment = await Equipment.findOne({ 
+      where: { id, is_deleted: false } 
+    });
+    
+    if (!equipment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Equipment not found' 
+      });
+    }
+
+    const { name, special_identifier, buying_price, date_of_purchase, current_ammortissement, state, employee_id, desk_id, section_id } = req.body;
+
+    // Validate desk_id or section_id if provided
+    if ((desk_id !== undefined && section_id !== undefined) && 
+        ((!desk_id && !section_id) || (desk_id && section_id))) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Equipment must be assigned to either a desk or a section, but not both' 
+      });
+    }
+
+    // Check if special identifier already exists (excluding current equipment)
+    if (special_identifier && special_identifier !== equipment.special_identifier) {
+      const existingEquipment = await Equipment.findOne({ 
+        where: { special_identifier, is_deleted: false, id: { [Op.ne]: id } } 
+      });
+      if (existingEquipment) {
+        return res.status(400).json({
+          success: false,
+          message: 'Another equipment with this special identifier already exists'
+        });
+      }
+    }
+
+    // Validate references if provided
+    if (employee_id !== undefined) {
+      if (employee_id) {
+        const employee = await Employee.findByPk(employee_id);
+        if (!employee) {
+          return res.status(400).json({ 
+            success: false,
+            message: 'The specified employee does not exist' 
+          });
+        }
+      }
+    }
+
+    if (desk_id !== undefined) {
+      if (desk_id) {
+        const desk = await Desk.findByPk(desk_id);
+        if (!desk) {
+          return res.status(400).json({ 
+            success: false,
+            message: 'The specified desk does not exist' 
+          });
+        }
+      }
+    }
+
+    if (section_id !== undefined) {
+      if (section_id) {
+        const section = await Section.findByPk(section_id);
+        if (!section) {
+          return res.status(400).json({ 
+            success: false,
+            message: 'The specified section does not exist' 
+          });
+        }
+      }
+    }
+
+    await equipment.update({
+      name: name || equipment.name,
+      special_identifier: special_identifier || equipment.special_identifier,
+      buying_price: buying_price || equipment.buying_price,
+      date_of_purchase: date_of_purchase || equipment.date_of_purchase,
+      current_ammortissement: current_ammortissement !== undefined ? current_ammortissement : equipment.current_ammortissement,
+      state: state || equipment.state,
+      employee_id: employee_id !== undefined ? employee_id : equipment.employee_id,
+      desk_id: desk_id !== undefined ? desk_id : equipment.desk_id,
+      section_id: section_id !== undefined ? section_id : equipment.section_id
+    });
+
+    // Fetch updated equipment with associations
+    const updatedEquipment = await Equipment.findByPk(id, {
+      include: [
+        {
+          model: Employee,
+          as: 'employee',
+          attributes: ['id_employee', 'firstName', 'lastName']
+        },
+        {
+          model: Desk,
+          as: 'desk',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Section,
+          as: 'section',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+
+    res.json({ 
+      success: true,
+      message: 'Equipment updated successfully', 
+      data: updatedEquipment 
+    });
+  } catch (err) {
+    console.error('Error in updateEquipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to update equipment',
+      error: err.message 
+    });
+  }
+};
+
+// Patch equipment status (partial update for state)
+exports.patchEquipmentStatusById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { state } = req.body;
+
+    if (!state) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'State is required' 
+      });
+    }
+
+    // Validate state value
+    const validStates = ['new', 'good', 'fair', 'poor', 'broken'];
+    if (!validStates.includes(state)) {
+      return res.status(400).json({ 
+        success: false,
+        message: `Invalid state. Must be one of: ${validStates.join(', ')}` 
+      });
+    }
+
+    const equipment = await Equipment.findOne({ 
+      where: { id, is_deleted: false } 
+    });
+    
+    if (!equipment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Equipment not found' 
+      });
+    }
+
+    await equipment.update({ state });
+
+    res.json({ 
+      success: true,
+      message: 'Equipment status updated successfully',
+      data: {
+        id: equipment.id,
+        name: equipment.name,
+        special_identifier: equipment.special_identifier,
+        previous_state: equipment._previousDataValues.state,
+        new_state: state
+      }
+    });
+  } catch (err) {
+    console.error('Error in patchEquipmentStatusById:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to update equipment status',
+      error: err.message 
+    });
+  }
+};
+
+// Soft delete equipment
+exports.deleteEquipment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const equipment = await Equipment.findOne({ 
+      where: { id, is_deleted: false } 
+    });
+    
+    if (!equipment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Equipment not found or already deleted' 
+      });
+    }
+
+    await equipment.update({
+      is_deleted: true,
+      deleted_at: new Date()
+    });
+
+    res.json({ 
+      success: true,
+      message: 'Equipment deleted successfully' 
+    });
+  } catch (err) {
+    console.error('Error in deleteEquipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to delete equipment',
+      error: err.message 
+    });
+  }
+};
+
+// Get equipment by special identifier (for RFID scanning)
+exports.getEquipmentBySpecialIdentifier = async (req, res) => {
+  try {
+    const { special_identifier } = req.params;
+    const equipment = await Equipment.findOne({
+      where: { special_identifier, is_deleted: false },
+      attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase', 'current_ammortissement'],
+      include: [
+        {
+          model: Employee,
+          as: 'employee',
+          attributes: ['id_employee', 'firstName', 'lastName', 'CIN']
+        },
+        {
+          model: Desk,
+          as: 'desk',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Section,
+          as: 'section',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+    
+    if (!equipment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'No equipment found with this special identifier' 
+      });
+    }
+    
+    res.json({ 
+      success: true,
+      data: equipment 
+    });
+  } catch (err) {
+    console.error('Error in getEquipmentBySpecialIdentifier:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch equipment',
+      error: err.message 
+    });
+  }
+};
+
+// Quick search equipment (for mobile search functionality)
+exports.searchEquipment = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.length < 2) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Search query must be at least 2 characters long' 
+      });
+    }
+
+    const { Op } = require('sequelize');
+    const equipment = await Equipment.findAll({
+      where: {
+        is_deleted: false,
+        [Op.or]: [
+          { name: { [Op.like]: `%${q}%` } },
+          { special_identifier: { [Op.like]: `%${q}%` } }
+        ]
+      },
+      attributes: ['id', 'name', 'special_identifier', 'state'],
+      include: [
+        {
+          model: Employee,
+          as: 'employee',
+          attributes: ['id_employee', 'firstName', 'lastName']
+        }
+      ],
+      limit: 50
+    });
+
+    res.json({
+      success: true,
+      data: equipment,
+      count: equipment.length
+    });
+  } catch (err) {
+    console.error('Error in searchEquipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Search failed',
+      error: err.message 
+    });
+  }
+};

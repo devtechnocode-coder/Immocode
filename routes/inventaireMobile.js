@@ -10,4 +10,7 @@ router.get('/:id', authenticateToken, inventaireMobileController.getMyInventaire
 router.post('/', authenticateToken, inventaireMobileController.createMyInventaire);
 router.put('/:id', authenticateToken, inventaireMobileController.updateMyInventaire);
 
-module.exports = router;
+// Add the new status update route
+router.put('/:id/status', authenticateToken, inventaireMobileController.updateMyInventaireStatus);
+
+module.exports = router; // Fixed the typo here - was "module.exp orts"

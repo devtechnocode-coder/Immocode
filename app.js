@@ -14,7 +14,7 @@ const warehouseRoutes = require("./routes/warehouse");
 const departmentRoutes = require("./routes/department");
 const sectionRoutes = require("./routes/section");
 const equipmentRoutes = require("./routes/equipment");
-const equipmentMobileRoutes = require("./routes/equipmentMobile"); // ADD THIS LINE
+const equipmentMobileRoutes = require("./routes/equipmentMobile");
 const deskRoutes = require("./routes/desk");
 const inventaireRoutes = require("./routes/inventaire");
 const inventaireMobileRoutes = require("./routes/inventaireMobile");
@@ -124,7 +124,7 @@ async function startServer() {
     app.use("/api/sections", sectionRoutes);
     app.use("/api/desks", deskRoutes);
     app.use("/api/equipment", equipmentRoutes);
-    app.use("/api/mobile/equipment", equipmentMobileRoutes); // ADD THIS LINE
+    app.use("/api/mobile/equipment", equipmentMobileRoutes);
     app.use("/api/inventaires", inventaireRoutes);
     app.use("/api/mobile/inventaires", inventaireMobileRoutes);
     app.use("/api/employees", employeeRoutes);

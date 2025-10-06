@@ -1,11 +1,12 @@
 const { Equipment, Employee, Desk, Section, Inventaire, InventaireEquipment } = require('../models');
+const { Op } = require('sequelize');
 
 // Get all non-deleted equipment with basic info (mobile optimized)
 exports.getAllNonDeletedEquipment = async (req, res) => {
   try {
     const equipment = await Equipment.findAll({
       where: { is_deleted: false },
-      attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase'],
+      attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase', 'current_ammortissement'],
       include: [
         {
           model: Employee,
@@ -25,11 +26,24 @@ exports.getAllNonDeletedEquipment = async (req, res) => {
       ],
       order: [['name', 'ASC']]
     });
+
+    // Transform data for mobile
+    const transformedEquipment = equipment.map(equip => ({
+      id: equip.id,
+      name: equip.name,
+      special_identifier: equip.special_identifier,
+      emplacement: equip.desk ? equip.desk.name : (equip.section ? equip.section.name : 'Unknown'),
+      associated_user: equip.employee ? `${equip.employee.firstName} ${equip.employee.lastName}` : 'Unassigned',
+      status: equip.state,
+      buying_price: parseFloat(equip.buying_price) || 0,
+      date_of_purchase: equip.date_of_purchase,
+      current_ammortissement: parseFloat(equip.current_ammortissement) || 0
+    }));
     
     res.json({
       success: true,
-      data: equipment,
-      count: equipment.length
+      data: transformedEquipment,
+      count: transformedEquipment.length
     });
   } catch (err) {
     console.error('Error in getAllNonDeletedEquipment:', err);
@@ -62,7 +76,7 @@ exports.getAllNonDeletedEquipmentByInventoryID = async (req, res) => {
         {
           model: Equipment,
           where: { is_deleted: false },
-          attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase'],
+          attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase', 'current_ammortissement'],
           include: [
             {
               model: Employee,
@@ -86,10 +100,23 @@ exports.getAllNonDeletedEquipmentByInventoryID = async (req, res) => {
 
     const equipment = inventoryEquipment.map(item => item.Equipment);
     
+    // Transform data for mobile
+    const transformedEquipment = equipment.map(equip => ({
+      id: equip.id,
+      name: equip.name,
+      special_identifier: equip.special_identifier,
+      emplacement: equip.desk ? equip.desk.name : (equip.section ? equip.section.name : 'Unknown'),
+      associated_user: equip.employee ? `${equip.employee.firstName} ${equip.employee.lastName}` : 'Unassigned',
+      status: equip.state,
+      buying_price: parseFloat(equip.buying_price) || 0,
+      date_of_purchase: equip.date_of_purchase,
+      current_ammortissement: parseFloat(equip.current_ammortissement) || 0
+    }));
+
     res.json({
       success: true,
-      data: equipment,
-      count: equipment.length,
+      data: transformedEquipment,
+      count: transformedEquipment.length,
       inventory: {
         id: inventory.id,
         name: inventory.name,
@@ -101,6 +128,146 @@ exports.getAllNonDeletedEquipmentByInventoryID = async (req, res) => {
     res.status(500).json({ 
       success: false,
       message: 'Failed to fetch equipment for inventory',
+      error: err.message 
+    });
+  }
+};
+
+// Get equipment for specific inventory (for Android app)
+exports.getInventoryEquipment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Verify inventory exists
+    const inventory = await Inventaire.findByPk(id);
+    if (!inventory) {
+      return res.status(404).json({
+        success: false,
+        message: 'Inventory not found'
+      });
+    }
+
+    // Get all equipment (since we don't have direct inventory-equipment relationship yet)
+    // This will return all equipment that should be in this inventory location
+    const equipment = await Equipment.findAll({
+      where: { 
+        is_deleted: false
+      },
+      attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase', 'current_ammortissement'],
+      include: [
+        {
+          model: Employee,
+          as: 'employee',
+          attributes: ['id_employee', 'firstName', 'lastName']
+        },
+        {
+          model: Desk,
+          as: 'desk',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Section,
+          as: 'section',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+
+    // Transform data to match Android EquipmentResponse model
+    const equipmentList = equipment.map(equip => {
+      // Determine emplacement (location)
+      let emplacement = 'Unknown';
+      if (equip.desk) {
+        emplacement = equip.desk.name;
+      } else if (equip.section) {
+        emplacement = equip.section.name;
+      }
+      
+      // Determine associated user
+      let associated_user = 'Unassigned';
+      if (equip.employee) {
+        associated_user = `${equip.employee.firstName} ${equip.employee.lastName}`;
+      }
+
+      return {
+        id: equip.id,
+        name: equip.name,
+        special_identifier: equip.special_identifier,
+        emplacement: emplacement,
+        associated_user: associated_user,
+        status: equip.state,
+        buying_price: parseFloat(equip.buying_price) || 0,
+        date_of_purchase: equip.date_of_purchase,
+        current_ammortissement: parseFloat(equip.current_ammortissement) || 0
+      };
+    });
+
+    res.json(equipmentList);
+  } catch (err) {
+    console.error('Error in getInventoryEquipment:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch inventory equipment',
+      error: err.message 
+    });
+  }
+};
+
+// Get equipment by ID
+exports.getEquipmentById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const equipment = await Equipment.findOne({
+      where: { id, is_deleted: false },
+      attributes: ['id', 'name', 'special_identifier', 'state', 'buying_price', 'date_of_purchase', 'current_ammortissement'],
+      include: [
+        {
+          model: Employee,
+          as: 'employee',
+          attributes: ['id_employee', 'firstName', 'lastName']
+        },
+        {
+          model: Desk,
+          as: 'desk',
+          attributes: ['id', 'name']
+        },
+        {
+          model: Section,
+          as: 'section',
+          attributes: ['id', 'name']
+        }
+      ]
+    });
+    
+    if (!equipment) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Equipment not found' 
+      });
+    }
+
+    // Transform data for mobile
+    const transformedEquipment = {
+      id: equipment.id,
+      name: equipment.name,
+      special_identifier: equipment.special_identifier,
+      emplacement: equipment.desk ? equipment.desk.name : (equipment.section ? equipment.section.name : 'Unknown'),
+      associated_user: equipment.employee ? `${equipment.employee.firstName} ${equipment.employee.lastName}` : 'Unassigned',
+      status: equipment.state,
+      buying_price: parseFloat(equipment.buying_price) || 0,
+      date_of_purchase: equipment.date_of_purchase,
+      current_ammortissement: parseFloat(equipment.current_ammortissement) || 0
+    };
+    
+    res.json({ 
+      success: true,
+      data: transformedEquipment 
+    });
+  } catch (err) {
+    console.error('Error in getEquipmentById:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch equipment',
       error: err.message 
     });
   }
@@ -203,10 +370,23 @@ exports.createEquipment = async (req, res) => {
       ]
     });
 
+    // Transform response for mobile
+    const transformedEquipment = {
+      id: createdEquipment.id,
+      name: createdEquipment.name,
+      special_identifier: createdEquipment.special_identifier,
+      emplacement: createdEquipment.desk ? createdEquipment.desk.name : (createdEquipment.section ? createdEquipment.section.name : 'Unknown'),
+      associated_user: createdEquipment.employee ? `${createdEquipment.employee.firstName} ${createdEquipment.employee.lastName}` : 'Unassigned',
+      status: createdEquipment.state,
+      buying_price: parseFloat(createdEquipment.buying_price) || 0,
+      date_of_purchase: createdEquipment.date_of_purchase,
+      current_ammortissement: parseFloat(createdEquipment.current_ammortissement) || 0
+    };
+
     res.status(201).json({ 
       success: true,
       message: 'Equipment created successfully', 
-      data: createdEquipment 
+      data: transformedEquipment 
     });
   } catch (err) {
     console.error('Error in createEquipment:', err);
@@ -327,10 +507,23 @@ exports.updateEquipment = async (req, res) => {
       ]
     });
 
+    // Transform response for mobile
+    const transformedEquipment = {
+      id: updatedEquipment.id,
+      name: updatedEquipment.name,
+      special_identifier: updatedEquipment.special_identifier,
+      emplacement: updatedEquipment.desk ? updatedEquipment.desk.name : (updatedEquipment.section ? updatedEquipment.section.name : 'Unknown'),
+      associated_user: updatedEquipment.employee ? `${updatedEquipment.employee.firstName} ${updatedEquipment.employee.lastName}` : 'Unassigned',
+      status: updatedEquipment.state,
+      buying_price: parseFloat(updatedEquipment.buying_price) || 0,
+      date_of_purchase: updatedEquipment.date_of_purchase,
+      current_ammortissement: parseFloat(updatedEquipment.current_ammortissement) || 0
+    };
+
     res.json({ 
       success: true,
       message: 'Equipment updated successfully', 
-      data: updatedEquipment 
+      data: transformedEquipment 
     });
   } catch (err) {
     console.error('Error in updateEquipment:', err);
@@ -464,10 +657,23 @@ exports.getEquipmentBySpecialIdentifier = async (req, res) => {
         message: 'No equipment found with this special identifier' 
       });
     }
+
+    // Transform data for mobile
+    const transformedEquipment = {
+      id: equipment.id,
+      name: equipment.name,
+      special_identifier: equipment.special_identifier,
+      emplacement: equipment.desk ? equipment.desk.name : (equipment.section ? equipment.section.name : 'Unknown'),
+      associated_user: equipment.employee ? `${equipment.employee.firstName} ${equipment.employee.lastName}` : 'Unassigned',
+      status: equipment.state,
+      buying_price: parseFloat(equipment.buying_price) || 0,
+      date_of_purchase: equipment.date_of_purchase,
+      current_ammortissement: parseFloat(equipment.current_ammortissement) || 0
+    };
     
     res.json({ 
       success: true,
-      data: equipment 
+      data: transformedEquipment 
     });
   } catch (err) {
     console.error('Error in getEquipmentBySpecialIdentifier:', err);
@@ -491,7 +697,6 @@ exports.searchEquipment = async (req, res) => {
       });
     }
 
-    const { Op } = require('sequelize');
     const equipment = await Equipment.findAll({
       where: {
         is_deleted: false,

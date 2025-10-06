@@ -10,6 +10,9 @@ router.get('/inventory/:inventory_id', authenticateToken, equipmentMobileControl
 router.get('/identifier/:special_identifier', authenticateToken, equipmentMobileController.getEquipmentBySpecialIdentifier);
 router.get('/:id', authenticateToken, equipmentMobileController.getEquipmentById);
 
+// Add the inventory equipment endpoint to equipment routes
+router.get('/inventory/:id/equipment', authenticateToken, equipmentMobileController.getInventoryEquipment);
+
 // Creation and modification routes (typically require admin or manager role)
 router.post('/', authenticateToken, equipmentMobileController.createEquipment);
 router.put('/:id', authenticateToken, equipmentMobileController.updateEquipment);

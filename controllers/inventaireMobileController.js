@@ -1,86 +1,128 @@
 const { Inventaire, User, Desk, Section, Equipment } = require('../models');
+const { Op } = require('sequelize');
 
-// Mobile user - Get all non-deleted inventories associated with the current user
+// Get all inventories for current user (optimized)
 exports.getMyInventaires = async (req, res) => {
   try {
-    // Assuming user ID is available from auth middleware (req.user.id)
     const userId = req.user.id;
-    
-    const inventaires = await Inventaire.findAll({ 
-      where: { 
-        AssociatedTo: userId, 
-        isDeleted: false 
-      },
+
+    const inventaires = await Inventaire.findAll({
+      where: { AssociatedTo: userId, isDeleted: false },
       include: [
+        { model: User, as: 'associatedUser', attributes: ['id', 'name', 'email'] },
+        // Include Desk and Section through Equipment
         {
-          model: User,
-          as: 'associatedUser',
-          attributes: ['id', 'name', 'email']
-        },
-        {
-          model: Desk,
-          as: 'desk',
+          model: Equipment,
+          as: 'equipment',
           required: false,
-          where: { PlacementType: 'desk' }
+          where: { is_deleted: false },
+          include: [
+            { model: Desk, as: 'desk', attributes: ['id', 'name'] },
+            { model: Section, as: 'section', attributes: ['id', 'name'] }
+          ]
         },
-        {
-          model: Section,
-          as: 'section',
-          required: false,
-          where: { PlacementType: 'section' }
-        }
+        { model: Desk, as: 'desk', attributes: ['id', 'name'], required: false },
+        { model: Section, as: 'section', attributes: ['id', 'name'], required: false }
       ],
       order: [['created_at', 'DESC']]
     });
-    
-    res.json(inventaires);
+
+    // Map inventories to include equipment count and emplacement
+    const results = inventaires.map(inv => {
+      const equipmentList = inv.equipment || [];
+      const emplacement = inv.PlacementType === 'desk' ? inv.desk?.name : inv.section?.name;
+
+      return {
+        idInventaire: inv.idInventaire,
+        name: inv.inventoryType,
+        status: inv.status,
+        startDate: inv.startDate,
+        priority: inv.priority,
+        PlacementType: inv.PlacementType,
+        emplacement,
+        equipmentCount: equipmentList.length,
+        equipmentList: equipmentList.map(eq => ({
+          id: eq.id,
+          name: eq.name,
+          special_identifier: eq.special_identifier,
+          buying_price: eq.buying_price,
+          date_of_purchase: eq.date_of_purchase,
+          current_ammortissement: eq.current_ammortissement,
+          state: eq.state,
+          desk: eq.desk?.name || null,
+          section: eq.section?.name || null
+        })),
+        associatedUser: inv.associatedUser
+      };
+    });
+
+    res.json(results);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// Mobile user - Get specific inventory by ID (only if associated with current user)
+// Get single inventory by ID (optimized)
 exports.getMyInventaireById = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    
-    const inventaire = await Inventaire.findOne({ 
-      where: { 
-        idInventaire: id, 
-        AssociatedTo: userId,
-        isDeleted: false 
-      },
+
+    const inventaire = await Inventaire.findOne({
+      where: { idInventaire: id, AssociatedTo: userId, isDeleted: false },
       include: [
+        { model: User, as: 'associatedUser', attributes: ['id', 'name', 'email'] },
         {
-          model: User,
-          as: 'associatedUser',
-          attributes: ['id', 'name', 'email']
-        },
-        {
-          model: Desk,
-          as: 'desk',
+          model: Equipment,
+          as: 'equipment',
           required: false,
-          where: { PlacementType: 'desk' }
+          where: { is_deleted: false },
+          include: [
+            { model: Desk, as: 'desk', attributes: ['id', 'name'] },
+            { model: Section, as: 'section', attributes: ['id', 'name'] }
+          ]
         },
-        {
-          model: Section,
-          as: 'section',
-          required: false,
-          where: { PlacementType: 'section' }
-        }
+        { model: Desk, as: 'desk', attributes: ['id', 'name'], required: false },
+        { model: Section, as: 'section', attributes: ['id', 'name'], required: false }
       ]
     });
-    
+
     if (!inventaire) {
       return res.status(404).json({ message: 'Inventaire not found or you do not have access' });
     }
-    
-    res.json(inventaire);
+
+    const equipmentList = inventaire.equipment || [];
+    const emplacement = inventaire.PlacementType === 'desk' ? inventaire.desk?.name : inventaire.section?.name;
+
+    res.json({
+      idInventaire: inventaire.idInventaire,
+      name: inventaire.inventoryType,
+      status: inventaire.status,
+      startDate: inventaire.startDate,
+      priority: inventaire.priority,
+      PlacementType: inventaire.PlacementType,
+      emplacement,
+      equipmentCount: equipmentList.length,
+      equipmentList: equipmentList.map(eq => ({
+        id: eq.id,
+        name: eq.name,
+        special_identifier: eq.special_identifier,
+        buying_price: eq.buying_price,
+        date_of_purchase: eq.date_of_purchase,
+        current_ammortissement: eq.current_ammortissement,
+        state: eq.state,
+        desk: eq.desk?.name || null,
+        section: eq.section?.name || null
+      })),
+      associatedUser: inventaire.associatedUser
+    });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // Mobile user - Create new inventory
 exports.createMyInventaire = async (req, res) => {

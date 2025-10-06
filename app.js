@@ -60,11 +60,42 @@ async function runMigrationsSafely() {
 
   try {
     console.log("🗄️ Running migrations...");
-    await umzug.up();
-    console.log("✅ All migrations completed successfully!");
+    const pending = await umzug.pending();
+    console.log(`📋 ${pending.length} migrations pending`);
+    
+    if (pending.length > 0) {
+      await umzug.up();
+      console.log("✅ All migrations completed successfully!");
+    } else {
+      console.log("✅ No pending migrations.");
+    }
   } catch (err) {
     console.error("⚠️ Migration error:", err.message || err);
     console.log("⚠️ Continuing startup despite migration error...");
+  }
+}
+
+//
+// 🔹 Model Synchronization
+//
+async function syncModels() {
+  try {
+    console.log("🔄 Synchronizing models...");
+    
+    // Sync all models - use { force: true } only in development if you want to drop and recreate tables
+    await db.sequelize.sync({ alter: true }); // This will alter tables to match models
+    
+    console.log("✅ All models synchronized successfully!");
+    
+    // Test that Inventaire model is available
+    if (db.Inventaire) {
+      console.log("✅ Inventaire model is properly registered");
+    } else {
+      console.log("❌ Inventaire model is NOT registered");
+    }
+  } catch (err) {
+    console.error("❌ Model synchronization error:", err);
+    throw err;
   }
 }
 
@@ -78,6 +109,9 @@ async function startServer() {
 
     // Run migrations safely
     await runMigrationsSafely();
+
+    // Sync models (this will create missing tables)
+    await syncModels();
 
     // Routes
     app.use("/api/auth", authRoutes);
@@ -93,8 +127,28 @@ async function startServer() {
     app.use("/api/mobile/inventaires", inventaireMobileRoutes);
     app.use("/api/employees", employeeRoutes);
 
+    // Health check endpoint
     app.get("/", (req, res) => {
-      res.send("API is running!");
+      res.json({ 
+        message: "API is running!",
+        models: Object.keys(db).filter(key => key !== 'sequelize' && key !== 'Sequelize')
+      });
+    });
+
+    // Test Inventaire model endpoint
+    app.get("/api/test-inventaire", async (req, res) => {
+      try {
+        const inventaireCount = await db.Inventaire.count();
+        res.json({ 
+          message: "Inventaire model is working!",
+          count: inventaireCount
+        });
+      } catch (err) {
+        res.status(500).json({ 
+          error: "Inventaire model error",
+          message: err.message 
+        });
+      }
     });
 
     const PORT = process.env.PORT || 5000;
@@ -103,6 +157,7 @@ async function startServer() {
     });
   } catch (err) {
     console.error("❌ Fatal startup error:", err);
+    process.exit(1);
   }
 }
 
@@ -111,9 +166,11 @@ startServer();
 //
 // 🔹 Error Handling
 //
-process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled Rejection:", reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });
+
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
+  process.exit(1);
 });

@@ -21,6 +21,43 @@ module.exports = (sequelize, DataTypes) => {
         as: 'section'
       });
     }
+
+    // Instance method to get placement name
+    async getPlacementName() {
+      if (this.PlacementType === 'desk') {
+        const desk = await this.sequelize.models.Desk.findByPk(this.idPlacement);
+        return desk ? desk.name : 'Unknown Desk';
+      } else if (this.PlacementType === 'section') {
+        const section = await this.sequelize.models.Section.findByPk(this.idPlacement);
+        return section ? section.name : 'Unknown Section';
+      }
+      
+      return 'Unknown Placement';
+    }
+
+    // Instance method to calculate total equipment
+    async calculateTotalEquipment() {
+      let count = 0;
+      
+      if (this.PlacementType === 'desk') {
+        count = await this.sequelize.models.Equipment.count({
+          where: { 
+            desk_id: this.idPlacement,
+            is_deleted: false
+          }
+        });
+      } else if (this.PlacementType === 'section') {
+        count = await this.sequelize.models.Equipment.count({
+          where: { 
+            section_id: this.idPlacement,
+            is_deleted: false
+          }
+        });
+      }
+      
+      this.totalEquipement = count;
+      return this.save();
+    }
   }
 
   Inventaire.init({
@@ -110,45 +147,31 @@ module.exports = (sequelize, DataTypes) => {
         }
       },
       beforeSave: async (inventaire) => {
-  // Calculate total equipment
-  const { Equipment } = require('../models');
-  let count = 0;
-  
-  if (inventaire.PlacementType === 'desk') {
-    count = await Equipment.count({
-      where: { 
-        desk_id: inventaire.idPlacement,
-        is_deleted: false  // Added this line
+        // Only calculate if it's a new record or placement changed
+        if (inventaire.isNewRecord || inventaire.changed('idPlacement') || inventaire.changed('PlacementType')) {
+          let count = 0;
+          
+          if (inventaire.PlacementType === 'desk') {
+            count = await inventaire.sequelize.models.Equipment.count({
+              where: { 
+                desk_id: inventaire.idPlacement,
+                is_deleted: false
+              }
+            });
+          } else if (inventaire.PlacementType === 'section') {
+            count = await inventaire.sequelize.models.Equipment.count({
+              where: { 
+                section_id: inventaire.idPlacement,
+                is_deleted: false
+              }
+            });
+          }
+          
+          inventaire.totalEquipement = count;
+        }
       }
-    });
-  } else if (inventaire.PlacementType === 'section') {
-    count = await Equipment.count({
-      where: { 
-        section_id: inventaire.idPlacement,
-        is_deleted: false  // Added this line
-      }
-    });
-  }
-  
-  inventaire.totalEquipement = count;
-}
     }
   });
-
-  // Instance method to get placement name
-  Inventaire.prototype.getPlacementName = async function() {
-    const { Desk, Section } = require('../models');
-    
-    if (this.PlacementType === 'desk') {
-      const desk = await Desk.findByPk(this.idPlacement);
-      return desk ? desk.name : 'Unknown Desk';
-    } else if (this.PlacementType === 'section') {
-      const section = await Section.findByPk(this.idPlacement);
-      return section ? section.name : 'Unknown Section';
-    }
-    
-    return 'Unknown Placement';
-  };
 
   return Inventaire;
 };
